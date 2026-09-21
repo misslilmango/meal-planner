@@ -1,0 +1,1278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Weekly Meal & Grocery Planner</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  <script>
+    // Tailwind configuration for custom brand and sage palette definitions
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#fdf8f6',
+              100: '#f2e8e5',
+              500: '#e07a5f',
+              600: '#d06448',
+              700: '#b85137',
+            },
+            sage: {
+              50: '#f4f6f4',
+              100: '#e3eae3',
+              500: '#819885',
+              600: '#67806c',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style id="dynamic-brand-style"></style>
+</head>
+<body class="bg-stone-100 text-stone-800 font-sans min-h-screen pb-16">
+
+  <!-- Autocomplete Shared Datalists -->
+  <datalist id="known-ingredients-list"></datalist>
+  <datalist id="cooking-types-list">
+    <option value="Sheet Pan"></option>
+    <option value="One-Skillet"></option>
+    <option value="One-Pot"></option>
+    <option value="Stir-Fry"></option>
+    <option value="Bake"></option>
+    <option value="Grill"></option>
+    <option value="Slow Cooker"></option>
+    <option value="Instant Pot"></option>
+    <option value="Soup / Stew"></option>
+    <option value="Salad"></option>
+    <option value="Quick Bite"></option>
+    <option value="Dessert"></option>
+  </datalist>
+
+  <!-- Top Navigation Header -->
+  <header class="bg-white border-b border-stone-200 sticky top-0 z-30 shadow-sm">
+    <div class="max-w-6xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+      <div>
+        <div class="flex items-center gap-2 flex-wrap">
+          <h1 class="text-xl font-bold text-stone-900 flex items-center gap-2">
+            <i class="fa-solid fa-utensils text-brand-500"></i> Weekly Meal & Grocery Planner
+          </h1>
+          <button onclick="openAboutModal()" class="px-2 py-0.5 bg-stone-100 hover:bg-stone-200 text-stone-600 rounded-full text-xs font-semibold transition flex items-center gap-1" title="How it works">
+            <i class="fa-solid fa-circle-question text-brand-500"></i> Help
+          </button>
+        </div>
+        <p class="text-xs text-stone-500">Weekly Schedule • Recipe Library • Smart Grocery List</p>
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="flex items-center gap-2 flex-wrap">
+        <!-- Theme Colour Picker -->
+        <div class="flex items-center gap-1.5 bg-stone-100 hover:bg-stone-200 px-2 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer" title="Choose theme colour">
+          <i class="fa-solid fa-palette text-brand-500"></i>
+          <span class="hidden sm:inline text-stone-600">Colour</span>
+          <input type="color" id="brand-color-picker" value="#e07a5f" onchange="changeBrandColor(this.value)" class="w-5 h-5 rounded border-0 cursor-pointer bg-transparent p-0" />
+        </div>
+
+        <button id="open-recipe-box-btn" class="px-2.5 py-1.5 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-lg text-xs font-semibold transition flex items-center gap-1.5">
+          <i class="fa-solid fa-book-open text-brand-500"></i> Recipes (<span id="recipe-count-badge">0</span>)
+        </button>
+
+        <button id="export-backup-btn" class="px-2.5 py-1.5 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-lg text-xs font-semibold transition flex items-center gap-1" title="Download backup file">
+          <i class="fa-solid fa-download"></i> Backup
+        </button>
+        <label class="px-2.5 py-1.5 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-lg text-xs font-semibold transition flex items-center gap-1 cursor-pointer" title="Restore from backup file">
+          <i class="fa-solid fa-upload"></i> Restore
+          <input type="file" id="import-backup-input" accept=".json" class="hidden" />
+        </label>
+
+        <button id="autofill-btn" class="px-3 py-1.5 bg-sage-500 hover:bg-sage-600 text-white rounded-lg text-xs font-semibold shadow-sm transition flex items-center gap-1.5">
+          <i class="fa-solid fa-shuffle"></i> Autofill
+        </button>
+        <button id="clear-plan-btn" class="px-2.5 py-1.5 bg-stone-200 hover:bg-stone-300 text-stone-700 rounded-lg text-xs font-semibold transition">
+          Reset Week
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content Layout -->
+  <main class="max-w-6xl mx-auto px-4 py-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+    <!-- Left Column: 7-Day Schedule -->
+    <div class="lg:col-span-8 space-y-5">
+      <section class="space-y-4">
+        <div class="flex items-center justify-between">
+          <h2 class="text-lg font-bold text-stone-900">7-Day Meal Schedule</h2>
+          <span class="text-xs text-stone-500 italic">Past days shaded • Today highlighted</span>
+        </div>
+
+        <div id="days-container" class="space-y-3">
+          <!-- Rendered via JS -->
+        </div>
+      </section>
+    </div>
+
+    <!-- Right Column: Grocery List with Scope Filters -->
+    <div class="lg:col-span-4 space-y-6">
+      <section class="bg-white rounded-xl p-5 border border-stone-200 shadow-sm sticky top-20">
+        <div class="flex items-center justify-between border-b border-stone-200 pb-3 mb-3">
+          <div>
+            <h2 class="text-base font-bold text-stone-900 flex items-center gap-2">
+              <i class="fa-solid fa-basket-shopping text-brand-500"></i> Grocery List
+            </h2>
+            <p class="text-xs text-stone-500" id="grocery-summary-text">Auto-summed with container caps</p>
+          </div>
+          <button id="copy-grocery-btn" class="p-2 text-stone-600 hover:text-brand-500 rounded-lg hover:bg-stone-100 transition" title="Copy needed items to clipboard">
+            <i class="fa-regular fa-copy"></i>
+          </button>
+        </div>
+
+        <!-- Scope Filter Tabs -->
+        <div class="bg-stone-100 p-1 rounded-lg flex gap-1 mb-4 text-[11px] font-semibold">
+          <button id="scope-full-btn" onclick="setGroceryScope('full')" class="flex-1 py-1 px-2 rounded-md transition text-center shadow-xs bg-white text-stone-800">
+            Full Week
+          </button>
+          <button id="scope-rest-btn" onclick="setGroceryScope('rest')" class="flex-1 py-1 px-2 rounded-md transition text-center text-stone-500 hover:text-stone-800">
+            Rest of Week
+          </button>
+          <button id="scope-today-btn" onclick="setGroceryScope('today')" class="flex-1 py-1 px-2 rounded-md transition text-center text-stone-500 hover:text-stone-800">
+            Today Only
+          </button>
+        </div>
+
+        <!-- Custom Item Input -->
+        <div class="flex gap-1.5 mb-4">
+          <input id="custom-item-input" type="text" placeholder="Add extra staple (e.g. coffee)..." class="w-full text-xs rounded-lg border border-stone-300 px-3 py-2 focus:ring-1 focus:ring-brand-500 focus:outline-none" />
+          <button id="add-custom-btn" class="px-3 py-2 bg-stone-800 hover:bg-stone-900 text-white rounded-lg text-xs font-semibold">
+            Add
+          </button>
+        </div>
+
+        <!-- Active Grocery Items -->
+        <div id="grocery-list-container" class="space-y-4 max-h-[55vh] overflow-y-auto pr-1 text-xs">
+          <!-- Rendered via JS -->
+        </div>
+
+        <!-- Collapsible Pantry Stash -->
+        <div id="pantry-stash-container" class="pt-3 border-t border-stone-100">
+          <!-- Rendered via JS -->
+        </div>
+      </section>
+    </div>
+
+  </main>
+
+  <!-- About / How It Works -->
+  <div id="about-modal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+    <div class="bg-white rounded-3xl max-w-lg w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
+      <div class="p-5 border-b border-stone-200 flex justify-between items-center bg-stone-50">
+        <div>
+          <span class="text-[11px] font-bold uppercase tracking-wider text-brand-600 flex items-center gap-1.5">
+            <i class="fa-solid fa-circle-question"></i> Guide
+          </span>
+          <h3 class="font-black text-stone-900 text-lg">How the Planner Works</h3>
+        </div>
+        <button onclick="closeModal('about-modal')" class="text-stone-400 hover:text-stone-700 text-xl p-1">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <div class="p-5 overflow-y-auto space-y-4 text-xs leading-relaxed text-stone-700">
+        <div class="space-y-1">
+          <h4 class="font-bold text-stone-900 flex items-center gap-1.5">
+            <i class="fa-solid fa-book-open text-brand-500"></i> 1. Build Your Recipe Box
+          </h4>
+          <p>Click the <strong>Recipes</strong> button in the top navigation to add your favourite meals. Organize and categorize them using options like <em>Sheet Pan, Slow Cooker, Soup/Stew, Salad</em>, and input ingredient measurements.</p>
+        </div>
+
+        <div class="space-y-1">
+          <h4 class="font-bold text-stone-900 flex items-center gap-1.5">
+            <i class="fa-solid fa-calendar-days text-sage-600"></i> 2. Schedule Your Week
+          </h4>
+          <p>Assign recipes to individual days of the week, or use the <strong>Autofill</strong> button to instantly randomize a weekly rotation. Past days are shaded and today is highlighted automatically.</p>
+        </div>
+
+        <div class="space-y-1">
+          <h4 class="font-bold text-stone-900 flex items-center gap-1.5">
+            <i class="fa-solid fa-basket-shopping text-brand-500"></i> 3. Smart Grocery List & Scope Filters
+          </h4>
+          <p>Ingredients from your weekly schedule automatically aggregate into a shopping list. Use the scope tabs (<strong>Full Week, Rest of Week, Today Only</strong>) to control what items appear.</p>
+        </div>
+
+        <div class="space-y-1">
+          <h4 class="font-bold text-stone-900 flex items-center gap-1.5">
+            <i class="fa-solid fa-box-archive text-indigo-500"></i> 4. Pantry Stash & Cook Mode
+          </h4>
+          <p>Tap the archive icon next to any grocery item you already own to stash it away. Click <strong>Cook Mode</strong> on any meal to view full-screen instructions with a built-in screen awake lock.</p>
+        </div>
+
+        <div class="space-y-1">
+          <h4 class="font-bold text-stone-900 flex items-center gap-1.5">
+            <i class="fa-solid fa-palette text-brand-500"></i> 5. Theme Colour Customiser
+          </h4>
+          <p>Click the <strong>Colour</strong> palette icon in the top header to open your browser's colour picker. Instantly customize the site's primary accent shade across all icons, buttons, and highlights.</p>
+        </div>
+
+        <div class="space-y-1 border-t border-stone-100 pt-3">
+          <h4 class="font-bold text-stone-900 flex items-center gap-1.5">
+            <i class="fa-solid fa-database text-amber-600"></i> 6. How Memory & Backups Work
+          </h4>
+          <p><strong>Local Browser Storage:</strong> All of your recipes, weekly meal plans, checked grocery items, and pantry stashes are saved inside your web browser's local memory. Your data stays private to your device.</p>
+          <p class="mt-1"><strong>Backup (Export) Button:</strong> Downloads a small <code>.json</code> file containing all your data to your computer or phone. Use this to save a copy of your custom recipes and schedule.</p>
+          <p class="mt-1"><strong>Restore (Import) Button:</strong> Uploads a previously saved backup <code>.json</code> file to load your recipes and settings back into the planner. Great for transferring your data across different devices or browsers.</p>
+        </div>
+
+        <div class="pt-3 flex justify-end">
+          <button onclick="closeModal('about-modal')" class="px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white rounded-xl text-xs font-bold transition">
+            Got It!
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Kitchen Cook Mode Modal -->
+  <div id="cook-mode-modal" class="fixed inset-0 bg-stone-900/90 backdrop-blur-md z-50 flex items-center justify-center hidden p-4 sm:p-6">
+    <div class="bg-white rounded-3xl max-w-3xl w-full max-h-[92vh] flex flex-col shadow-2xl overflow-hidden">
+      <div class="p-5 border-b border-stone-200 flex justify-between items-center bg-stone-50">
+        <div>
+          <span class="text-xs font-bold uppercase tracking-wider text-brand-600 flex items-center gap-1.5">
+            <i class="fa-solid fa-fire-burner"></i> Kitchen Cook Mode
+          </span>
+          <h3 class="font-black text-stone-900 text-xl" id="cook-mode-title">Recipe Title</h3>
+        </div>
+        <div class="flex items-center gap-3">
+          <span id="wake-lock-status" class="text-[11px] font-semibold text-emerald-600 bg-emerald-50 border border-emerald-200 px-2 py-1 rounded-full flex items-center gap-1">
+            <i class="fa-solid fa-eye"></i> Screen Awake
+          </span>
+          <button onclick="closeCookMode()" class="text-stone-400 hover:text-stone-700 text-xl p-2">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+      </div>
+
+      <div class="p-6 overflow-y-auto space-y-6">
+        <div class="bg-stone-50 rounded-2xl p-4 border border-stone-200">
+          <h4 class="font-bold text-xs uppercase tracking-wider text-stone-500 mb-2">Ingredients For This Meal</h4>
+          <div id="cook-mode-ingredients" class="flex flex-wrap gap-2 text-xs text-stone-800"></div>
+        </div>
+
+        <div class="space-y-2">
+          <h4 class="font-bold text-sm uppercase tracking-wider text-indigo-700 flex items-center gap-2">
+            <i class="fa-solid fa-utensils"></i> Cooking Instructions
+          </h4>
+          <p class="text-stone-800 text-base sm:text-lg leading-relaxed bg-indigo-50/40 p-4 rounded-2xl border border-indigo-100" id="cook-mode-instructions"></p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Assign Recipe -->
+  <div id="recipe-modal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+    <div class="bg-white rounded-2xl max-w-2xl w-full max-h-[85vh] flex flex-col shadow-xl overflow-hidden">
+      <div class="p-4 border-b border-stone-200 flex justify-between items-center">
+        <div>
+          <h3 class="font-bold text-stone-900 text-base" id="modal-title">Select Recipe</h3>
+          <p class="text-xs text-stone-500">Choose a recipe from your library</p>
+        </div>
+        <button onclick="closeModal('recipe-modal')" class="text-stone-400 hover:text-stone-700 text-lg p-1">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+      <div id="modal-recipe-list" class="p-4 overflow-y-auto divide-y divide-stone-100 space-y-1"></div>
+    </div>
+  </div>
+
+  <!-- Recipe Box -->
+  <div id="recipe-box-modal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+    <div class="bg-white rounded-2xl max-w-2xl w-full max-h-[85vh] flex flex-col shadow-xl overflow-hidden">
+      <div class="p-4 border-b border-stone-200 flex justify-between items-center">
+        <div>
+          <h3 class="font-bold text-stone-900 text-base">Recipe Box</h3>
+          <p class="text-xs text-stone-500">Manage, edit, and organize your recipes</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <button onclick="openCreateRecipeModal()" class="px-3 py-1.5 bg-brand-500 hover:bg-brand-600 text-white rounded-lg text-xs font-semibold flex items-center gap-1">
+            <i class="fa-solid fa-plus"></i> New Recipe
+          </button>
+          <button onclick="closeModal('recipe-box-modal')" class="text-stone-400 hover:text-stone-700 text-lg p-1">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+      </div>
+      <div id="recipe-box-list" class="p-4 overflow-y-auto divide-y divide-stone-100 space-y-2"></div>
+    </div>
+  </div>
+
+  <!-- Add / Edit Recipe -->
+  <div id="recipe-form-modal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+    <div class="bg-white rounded-2xl max-w-lg w-full max-h-[90vh] flex flex-col shadow-xl overflow-hidden">
+      <div class="p-4 border-b border-stone-200 flex justify-between items-center">
+        <div>
+          <h3 class="font-bold text-stone-900 text-base" id="recipe-form-modal-title">Recipe Details</h3>
+          <p class="text-xs text-stone-500">Fill out the recipe details and ingredients</p>
+        </div>
+        <button onclick="closeModal('recipe-form-modal')" class="text-stone-400 hover:text-stone-700 text-lg p-1">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <form id="recipe-form" class="p-4 overflow-y-auto space-y-3.5 text-xs">
+        <input type="hidden" id="rec-edit-id" value="" />
+        <div>
+          <label class="block font-semibold text-stone-700 mb-1">Recipe Title *</label>
+          <input id="rec-input-title" required type="text" placeholder="e.g. Sheet Pan Lemon Chicken" class="w-full rounded-lg border border-stone-300 px-3 py-2 focus:ring-1 focus:ring-brand-500 focus:outline-none" />
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block font-semibold text-stone-700 mb-1">Category / Type</label>
+            <input id="rec-input-type" list="cooking-types-list" type="text" placeholder="Select or type..." class="w-full rounded-lg border border-stone-300 px-3 py-2 focus:ring-1 focus:ring-brand-500 focus:outline-none" />
+            <div class="flex flex-wrap gap-1 mt-1.5">
+              <button type="button" onclick="setCookingType('Sheet Pan')" class="px-1.5 py-0.5 bg-stone-100 hover:bg-stone-200 rounded text-[10px] text-stone-600">+ Sheet Pan</button>
+              <button type="button" onclick="setCookingType('Slow Cooker')" class="px-1.5 py-0.5 bg-stone-100 hover:bg-stone-200 rounded text-[10px] text-stone-600">+ Slow Cooker</button>
+              <button type="button" onclick="setCookingType('Soup / Stew')" class="px-1.5 py-0.5 bg-stone-100 hover:bg-stone-200 rounded text-[10px] text-stone-600">+ Soup</button>
+            </div>
+          </div>
+          <div>
+            <label class="block font-semibold text-stone-700 mb-1">Tags</label>
+            <input id="rec-input-tags" type="text" placeholder="e.g. Quick, Vegetarian" class="w-full rounded-lg border border-stone-300 px-3 py-2 focus:ring-1 focus:ring-brand-500 focus:outline-none" />
+          </div>
+        </div>
+
+        <div>
+          <label class="block font-semibold text-stone-700 mb-1">Cooking Instructions</label>
+          <textarea id="rec-input-instructions" rows="3" placeholder="Step-by-step instructions..." class="w-full rounded-lg border border-stone-300 px-3 py-2 focus:ring-1 focus:ring-brand-500 focus:outline-none"></textarea>
+        </div>
+
+        <div>
+          <div class="flex items-center justify-between mb-1">
+            <label class="font-semibold text-stone-700">Ingredients</label>
+            <button type="button" onclick="addIngredientRow('recipe-ing-rows')" class="text-brand-600 hover:text-brand-700 font-bold text-[11px]">
+              + Add Ingredient
+            </button>
+          </div>
+          <div id="recipe-ing-rows" class="space-y-2"></div>
+        </div>
+
+        <div class="pt-2 flex justify-end gap-2 border-t border-stone-100">
+          <button type="button" onclick="closeModal('recipe-form-modal')" class="px-3 py-2 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-lg font-semibold">
+            Cancel
+          </button>
+          <button type="submit" class="px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white rounded-lg font-semibold">
+            Save Recipe
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- JavaScript Logic -->
+  <script>
+    // =========================================================================
+    // SECTION 1: CONSTANTS & INITIAL STATE SETUP
+    // This block defines global configuration constants like aisles, 
+    // measurement units, and bulk items. It also initializes the application memory 
+    // by reading whatever is stored in the browser's localStorage, falling back to 
+    // empty structures if nothing exists yet.
+    // =========================================================================
+
+    const AISLES = ['Produce', 'Meat & Poultry', 'Dairy & Refrigerated', 'Pantry & Spices', 'Bakery & Bread', 'Frozen'];
+    
+    const STANDARD_UNITS = [
+      'whole',
+      'medium',
+      'lbs',
+      'oz',
+      'heads',
+      'cloves',
+      'bunch',
+      'cups',
+      'tbsp',
+      'tsp',
+      'can',
+      'tub',
+      'box',
+      'pack',
+      'as needed'
+    ];
+
+    const BULK_CONTAINER_UNITS = ['box', 'tub', 'canister', 'bunch', 'as needed'];
+
+    const DAYS_OF_WEEK = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+
+    let recipes = JSON.parse(localStorage.getItem('general_recipes_v1')) || [];
+    let currentBrandColor = localStorage.getItem('general_brand_color_v1') || '#e07a5f';
+
+    let currentWeeklyPlan = JSON.parse(localStorage.getItem('general_weekly_plan_v1')) || {
+      Monday: { recipe: null },
+      Tuesday: { recipe: null },
+      Wednesday: { recipe: null },
+      Thursday: { recipe: null },
+      Friday: { recipe: null },
+      Saturday: { recipe: null },
+      Sunday: { recipe: null }
+    };
+
+    let checkedGroceries = JSON.parse(localStorage.getItem('general_checked_groceries_v1')) || [];
+    let stockedPantryItems = JSON.parse(localStorage.getItem('general_stocked_pantry_v1')) || [];
+    let customGroceries = JSON.parse(localStorage.getItem('general_custom_groceries_v1')) || [];
+    let groceryScope = localStorage.getItem('general_grocery_scope_v1') || 'full';
+
+    let activeDaySelecting = null;
+    let wakeLockSentinel = null;
+
+
+    // ======================================================================
+    // SECTION 2: PERSISTENCE & THEME
+    // Manages data saving and theme customisation. Whenever a change occurs, 
+    // saveState() bundles all application arrays and writes them into the browser's 
+    // localStorage. Meanwhile, applyBrandColor() calculates darker hover shades 
+    // mathematically and injects CSS overrides into a style tag so the custom  
+    // colour renders across all buttons, rings, and icons.
+    // =========================================================================
+
+    function saveState() {
+      localStorage.setItem('general_recipes_v1', JSON.stringify(recipes));
+      localStorage.setItem('general_weekly_plan_v1', JSON.stringify(currentWeeklyPlan));
+      localStorage.setItem('general_checked_groceries_v1', JSON.stringify(checkedGroceries));
+      localStorage.setItem('general_stocked_pantry_v1', JSON.stringify(stockedPantryItems));
+      localStorage.setItem('general_custom_groceries_v1', JSON.stringify(customGroceries));
+      localStorage.setItem('general_grocery_scope_v1', groceryScope);
+      localStorage.setItem('general_brand_color_v1', currentBrandColor);
+      updateUI();
+    }
+
+    // takes a standard hexadecimal colour code and 
+    // an integer adjustment amount, then converts, modifies, and 
+    // returns a new adjusted hexadecimal colour.
+    function adjustColor(hex, amount) {
+      let cleanHex = hex.replace('#', '');
+      if (cleanHex.length === 3) {
+        cleanHex = cleanHex.split('').map(c => c + c).join('');
+      }
+      let num = parseInt(cleanHex, 16);
+      let r = (num >> 16) + amount;
+      let g = ((num >> 8) & 0x00ff) + amount;
+      let b = (num & 0x0000ff) + amount;
+      r = Math.min(255, Math.max(0, r));
+      g = Math.min(255, Math.max(0, g));
+      b = Math.min(255, Math.max(0, b));
+      return `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)}`;
+    }
+
+    function applyBrandColor(hex) {
+      currentBrandColor = hex;
+      document.getElementById('brand-color-picker').value = hex;
+      const darker1 = adjustColor(hex, -20);
+      const darker2 = adjustColor(hex, -40);
+
+      const styleEl = document.getElementById('dynamic-brand-style');
+      styleEl.innerHTML = `
+        .bg-brand-500 { background-color: ${hex} !important; }
+        .bg-brand-600 { background-color: ${darker1} !important; }
+        .bg-brand-700 { background-color: ${darker2} !important; }
+        .bg-brand-50 { background-color: ${hex}15 !important; }
+        .text-brand-500 { color: ${hex} !important; }
+        .text-brand-600 { color: ${darker1} !important; }
+        .border-brand-400 { border-color: ${hex} !important; }
+        .border-brand-500 { border-color: ${hex} !important; }
+        .focus\\:ring-brand-500:focus { --tw-ring-color: ${hex} !important; }
+      `;
+    }
+
+    function changeBrandColor(hex) {
+      applyBrandColor(hex);
+      localStorage.setItem('general_brand_color_v1', hex);
+    }
+
+
+    // =========================================================================
+    // SECTION 3: UTILITY & AUTOCOMPLETE
+    // Provides helper functions including date checking to 
+    // figure out today's day index, scanning existing recipe ingredient libraries 
+    // to build smart input autocomplete lists, and coordinating overall UI redraws.
+    // =========================================================================
+
+    function getTodayDayIndex() {
+      const day = new Date().getDay();
+      return day === 0 ? 6 : day - 1;
+    }
+
+    function getKnownIngredientMap() {
+      const map = {};
+      recipes.forEach(recipe => {
+        if (recipe.ingredients) {
+          recipe.ingredients.forEach(i => {
+            const key = i.name.trim();
+            if (!map[key]) {
+              map[key] = { unit: i.unit, category: i.category };
+            }
+          });
+        }
+      });
+      return map;
+    }
+
+    function refreshAutocompleteDatalist() {
+      const datalist = document.getElementById('known-ingredients-list');
+      datalist.innerHTML = '';
+      const map = getKnownIngredientMap();
+      Object.keys(map).sort().forEach(name => {
+        const option = document.createElement('option');
+        option.value = name;
+        datalist.appendChild(option);
+      });
+    }
+
+    function updateUI() {
+      document.getElementById('recipe-count-badge').innerText = recipes.length;
+      refreshAutocompleteDatalist();
+      renderPlanner();
+      renderGroceryScopeButtons();
+      renderGroceryList();
+    }
+
+    function openModal(id) { document.getElementById(id).classList.remove('hidden'); }
+    function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
+
+    function openAboutModal() {
+      openModal('about-modal');
+    }
+
+    function setCookingType(type) {
+      document.getElementById('rec-input-type').value = type;
+    }
+
+
+    // =========================================================================
+    // SECTION 4: SCHEDULE & PLANNER
+    // Generates and injects all 7 days of the weekly  schedule. 
+    // It checks date indices to highlight today's card with 
+    // custom rings, mute past days, and provides controls 
+    // to shuffle or swap assigned meals.
+    // =========================================================================
+
+    function renderPlanner() {
+      const container = document.getElementById('days-container');
+      container.innerHTML = '';
+      const todayIdx = getTodayDayIndex();
+
+      DAYS_OF_WEEK.forEach((day, index) => {
+        const assignment = currentWeeklyPlan[day] || { recipe: null };
+        const recipe = recipes.find(r => r.id === assignment.recipe);
+
+        const isPast = index < todayIdx;
+        const isToday = index === todayIdx;
+
+        const card = document.createElement('div');
+        card.className = `rounded-xl border overflow-hidden shadow-sm transition ${
+          isPast 
+            ? 'bg-stone-200/70 border-stone-300 opacity-60' 
+            : isToday 
+              ? 'bg-white border-brand-400 ring-2 ring-brand-200/50' 
+              : 'bg-white border-stone-200 hover:border-stone-300'
+        }`;
+
+        card.innerHTML = `
+          <div class="${isPast ? 'bg-stone-300/60' : isToday ? 'bg-brand-50/70' : 'bg-stone-50/80'} px-4 py-2 border-b ${isPast ? 'border-stone-300' : 'border-stone-100'} flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <span class="w-6 h-6 rounded-full ${isToday ? 'bg-brand-600 ring-2 ring-brand-300' : isPast ? 'bg-stone-400' : 'bg-brand-500'} text-white flex items-center justify-center text-xs font-bold">
+                ${day.substring(0, 2)}
+              </span>
+              <h3 class="font-bold ${isPast ? 'text-stone-600' : 'text-stone-900'} text-sm flex items-center gap-2">
+                ${day}
+                ${isToday ? '<span class="px-1.5 py-0.2 bg-brand-500 text-white rounded text-[10px] font-extrabold uppercase tracking-wider">Today</span>' : ''}
+                ${isPast ? '<span class="text-[11px] text-stone-400 font-normal italic">(Past)</span>' : ''}
+              </h3>
+            </div>
+            
+            <div class="flex items-center gap-2">
+              <button onclick="shuffleSingleDay('${day}')" class="text-xs ${isPast ? 'text-stone-400' : 'text-stone-500'} hover:text-brand-600 font-semibold flex items-center gap-1 transition" title="Swap just today's recipe">
+                <i class="fa-solid fa-shuffle text-[11px]"></i> Shuffle
+              </button>
+              <button onclick="openRecipeModal('${day}')" class="text-xs text-brand-600 hover:text-brand-700 font-semibold flex items-center gap-1">
+                <i class="fa-solid fa-pen-to-square"></i> Change
+              </button>
+            </div>
+          </div>
+
+          <div class="p-4">
+            ${recipe ? `
+              <div>
+                <div class="flex items-center justify-between mb-1">
+                  <span class="text-[10px] uppercase font-bold tracking-wider ${isPast ? 'text-stone-500' : 'text-brand-600'} flex items-center gap-1">
+                    <i class="fa-solid fa-utensils ${isPast ? 'text-stone-400' : 'text-brand-500'}"></i> Meal
+                  </span>
+                  <div class="flex items-center gap-1.5">
+                    <span class="px-2 py-0.5 ${isPast ? 'bg-stone-300/80 text-stone-600' : 'bg-stone-100 text-stone-600'} rounded text-[10px] font-medium">${recipe.type || 'Meal'}</span>
+                    <button onclick="openCookMode('${recipe.id}')" class="px-2 py-0.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded text-[10px] font-bold flex items-center gap-1 transition">
+                      <i class="fa-solid fa-fire text-amber-500"></i> Cook Mode
+                    </button>
+                  </div>
+                </div>
+                <h4 class="text-sm font-bold ${isPast ? 'text-stone-700' : 'text-stone-900'} mb-1">${recipe.title}</h4>
+                <p class="text-xs ${isPast ? 'text-stone-500' : 'text-stone-600'} line-clamp-2">${recipe.instructions || ''}</p>
+              </div>
+            ` : `
+              <div class="py-4 text-center">
+                <p class="text-xs text-stone-400 mb-2">No meal scheduled for this day</p>
+                <button onclick="openRecipeModal('${day}')" class="px-3 py-1.5 bg-brand-50 text-brand-600 rounded-lg text-xs font-semibold hover:bg-brand-100">
+                  + Select Recipe
+                </button>
+              </div>
+            `}
+          </div>
+        `;
+        container.appendChild(card);
+      });
+    }
+
+    function shuffleSingleDay(day) {
+      if (recipes.length <= 1) return;
+      const currentId = currentWeeklyPlan[day]?.recipe;
+      const candidates = recipes.filter(r => r.id !== currentId);
+      const pick = candidates[Math.floor(Math.random() * candidates.length)];
+      currentWeeklyPlan[day].recipe = pick.id;
+      saveState();
+    }
+
+    // =========================================================================
+    // SECTION 5: GROCERY LIST & SCOPE ENGINE
+    // Aggregates all recipe ingredients based on the active scope 
+    // filter (Full Week, Rest of Week, Today Only). It groups matching ingredients 
+    // by grocery aisles, sums their amounts (while capping whole containers 
+    // like boxes or tubs to 1), and separates items moved into the pantry stash.
+    // =========================================================================
+
+    function setGroceryScope(scope) {
+      groceryScope = scope;
+      saveState();
+    }
+
+    function renderGroceryScopeButtons() {
+      const fullBtn = document.getElementById('scope-full-btn');
+      const restBtn = document.getElementById('scope-rest-btn');
+      const todayBtn = document.getElementById('scope-today-btn');
+
+      const activeClass = 'bg-white text-stone-900 shadow-xs';
+      const inactiveClass = 'text-stone-500 hover:text-stone-800';
+
+      fullBtn.className = `flex-1 py-1 px-2 rounded-md transition text-center ${groceryScope === 'full' ? activeClass : inactiveClass}`;
+      restBtn.className = `flex-1 py-1 px-2 rounded-md transition text-center ${groceryScope === 'rest' ? activeClass : inactiveClass}`;
+      todayBtn.className = `flex-1 py-1 px-2 rounded-md transition text-center ${groceryScope === 'today' ? activeClass : inactiveClass}`;
+
+      const summaryText = document.getElementById('grocery-summary-text');
+      const todayIdx = getTodayDayIndex();
+      const todayName = DAYS_OF_WEEK[todayIdx];
+
+      if (groceryScope === 'full') {
+        summaryText.innerText = "All 7 scheduled days";
+      } else if (groceryScope === 'rest') {
+        summaryText.innerText = `From ${todayName} through Sunday`;
+      } else {
+        summaryText.innerText = `Only today's meals (${todayName})`;
+      }
+    }
+
+    function getDaysForCurrentScope() {
+      const todayIdx = getTodayDayIndex();
+      if (groceryScope === 'today') {
+        return [DAYS_OF_WEEK[todayIdx]];
+      } else if (groceryScope === 'rest') {
+        return DAYS_OF_WEEK.slice(todayIdx);
+      }
+      return DAYS_OF_WEEK;
+    }
+
+    function renderGroceryList() {
+      const container = document.getElementById('grocery-list-container');
+      const stashContainer = document.getElementById('pantry-stash-container');
+      container.innerHTML = '';
+      stashContainer.innerHTML = '';
+
+      const categoryMap = {};
+
+      function addIng(ing) {
+        const cat = ing.category || 'Pantry & Spices';
+        const name = ing.name.trim();
+        if (!categoryMap[cat]) categoryMap[cat] = {};
+
+        const isBulk = BULK_CONTAINER_UNITS.includes((ing.unit || '').toLowerCase());
+
+        if (!categoryMap[cat][name]) {
+          categoryMap[cat][name] = { 
+            amount: isBulk ? 1 : ing.amount, 
+            unit: ing.unit 
+          };
+        } else {
+          if (!isBulk && typeof ing.amount === 'number' && typeof categoryMap[cat][name].amount === 'number' && categoryMap[cat][name].unit === ing.unit) {
+            categoryMap[cat][name].amount += ing.amount;
+          }
+        }
+      }
+
+      const activeDays = getDaysForCurrentScope();
+
+      activeDays.forEach(day => {
+        const item = currentWeeklyPlan[day];
+        if (item) {
+          const recipe = recipes.find(r => r.id === item.recipe);
+          if (recipe && recipe.ingredients) recipe.ingredients.forEach(i => addIng(i));
+        }
+      });
+
+      const categories = Object.keys(categoryMap).sort();
+      const stockedItemsInPlan = [];
+
+      if (categories.length === 0 && customGroceries.length === 0) {
+        container.innerHTML = `<p class="text-stone-400 italic text-center py-6">No meals in selected range (${groceryScope}).</p>`;
+        return;
+      }
+
+      categories.forEach(cat => {
+        const itemNames = Object.keys(categoryMap[cat]).sort();
+        const activeItems = [];
+
+        itemNames.forEach(name => {
+          const data = categoryMap[cat][name];
+          let displayLabel = name;
+          if (data.amount !== null && data.amount !== undefined) {
+            const formattedAmount = Math.round(data.amount * 100) / 100;
+            displayLabel = `${formattedAmount} ${data.unit} ${name}`;
+          } else if (data.unit && data.unit !== 'as needed') {
+            displayLabel = `${name} (${data.unit})`;
+          }
+
+          if (stockedPantryItems.includes(name)) {
+            stockedItemsInPlan.push({ name, displayLabel, cat });
+          } else {
+            activeItems.push({ name, displayLabel });
+          }
+        });
+
+        if (activeItems.length > 0) {
+          const section = document.createElement('div');
+          section.className = 'space-y-1.5';
+          section.innerHTML = `<h4 class="font-bold text-[11px] text-stone-500 uppercase tracking-wider border-b border-stone-100 pb-0.5">${cat}</h4>`;
+
+          const list = document.createElement('div');
+          list.className = 'space-y-1';
+
+          activeItems.forEach(item => {
+            const isChecked = checkedGroceries.includes(item.displayLabel);
+            const row = document.createElement('div');
+            row.className = 'flex items-center justify-between group py-0.5';
+            row.innerHTML = `
+              <label class="flex items-center gap-2 text-stone-700 hover:text-stone-900 cursor-pointer select-none flex-1 truncate">
+                <input type="checkbox" ${isChecked ? 'checked' : ''} onchange="toggleGroceryCheck('${item.displayLabel.replace(/'/g, "\\'")}')" class="rounded text-brand-500 focus:ring-0 cursor-pointer h-3.5 w-3.5" />
+                <span class="truncate ${isChecked ? 'line-through text-stone-300' : ''}">${item.displayLabel}</span>
+              </label>
+
+              <button onclick="toggleStockedPantry('${item.name.replace(/'/g, "\\'")}')" class="text-stone-300 hover:text-indigo-600 text-xs px-1 opacity-60 group-hover:opacity-100 transition" title="Mark as 'Already have in pantry'">
+                <i class="fa-solid fa-box-archive"></i>
+              </button>
+            `;
+            list.appendChild(row);
+          });
+
+          section.appendChild(list);
+          container.appendChild(section);
+        }
+      });
+
+      if (customGroceries.length > 0) {
+        const customSection = document.createElement('div');
+        customSection.className = 'space-y-1.5';
+        customSection.innerHTML = `<h4 class="font-bold text-[11px] text-stone-500 uppercase tracking-wider border-b border-stone-100 pb-0.5">Custom & Extras</h4>`;
+
+        const customList = document.createElement('div');
+        customList.className = 'space-y-1';
+
+        customGroceries.forEach(item => {
+          const isChecked = checkedGroceries.includes(item);
+          const row = document.createElement('div');
+          row.className = 'flex items-center justify-between py-0.5';
+          row.innerHTML = `
+            <label class="flex items-center gap-2 text-stone-700 hover:text-stone-900 cursor-pointer select-none flex-1 truncate">
+              <input type="checkbox" ${isChecked ? 'checked' : ''} onchange="toggleGroceryCheck('${item.replace(/'/g, "\\'")}')" class="rounded text-brand-500 focus:ring-0 cursor-pointer h-3.5 w-3.5" />
+              <span class="${isChecked ? 'line-through text-stone-300' : ''}">${item}</span>
+            </label>
+            <button onclick="removeCustomStaple('${item.replace(/'/g, "\\'")}')" class="text-stone-300 hover:text-rose-500 text-xs px-1">
+              <i class="fa-solid fa-xmark"></i>
+            </button>
+          `;
+          customList.appendChild(row);
+        });
+
+        customSection.appendChild(customList);
+        container.appendChild(customSection);
+      }
+
+      if (stockedItemsInPlan.length > 0) {
+        stashContainer.innerHTML = `
+          <details class="group text-stone-500">
+            <summary class="cursor-pointer font-bold text-[11px] uppercase tracking-wider flex items-center justify-between select-none py-1 hover:text-stone-700">
+              <span class="flex items-center gap-1.5">
+                <i class="fa-solid fa-circle-check text-indigo-500"></i> Already In Pantry (${stockedItemsInPlan.length})
+              </span>
+              <i class="fa-solid fa-chevron-down text-[10px] group-open:rotate-180 transition"></i>
+            </summary>
+            <div class="space-y-1 mt-2 pl-2 text-stone-600">
+              ${stockedItemsInPlan.map(si => `
+                <div class="flex items-center justify-between py-0.5 text-[11px]">
+                  <span class="line-through text-stone-400">${si.displayLabel}</span>
+                  <button onclick="toggleStockedPantry('${si.name.replace(/'/g, "\\'")}')" class="text-xs text-stone-400 hover:text-brand-600 font-semibold ml-2" title="Move back to need-to-buy grocery list">
+                    Unstash
+                  </button>
+                </div>
+              `).join('')}
+            </div>
+          </details>
+        `;
+      }
+    }
+
+    function toggleStockedPantry(name) {
+      if (stockedPantryItems.includes(name)) {
+        stockedPantryItems = stockedPantryItems.filter(i => i !== name);
+      } else {
+        stockedPantryItems.push(name);
+      }
+      saveState();
+    }
+
+    function removeCustomStaple(item) {
+      customGroceries = customGroceries.filter(c => c !== item);
+      saveState();
+    }
+
+
+    // =========================================================================
+    // SECTION 6: MODALS & RECIPE MANAGEMENT
+    // Controls user interaction for picking recipes, editing libraries, 
+    // adding ingredient rows to forms, and running Cook Mode.
+    // =========================================================================
+
+    function openRecipeModal(day) {
+      activeDaySelecting = day;
+      document.getElementById('modal-title').innerText = `Select Recipe for ${day}`;
+      const list = document.getElementById('modal-recipe-list');
+      list.innerHTML = '';
+
+      if (recipes.length === 0) {
+        list.innerHTML = `<p class="text-xs text-stone-400 text-center py-6">Your recipe library is empty. Add a recipe first!</p>`;
+      } else {
+        recipes.forEach(rec => {
+          const isCurrent = currentWeeklyPlan[day]?.recipe === rec.id;
+          const btn = document.createElement('button');
+          btn.className = `w-full text-left p-3 rounded-xl transition flex items-start justify-between gap-3 ${
+            isCurrent ? 'bg-brand-50 border border-brand-200' : 'hover:bg-stone-50'
+          }`;
+          btn.onclick = () => selectRecipeForDay(rec.id);
+
+          btn.innerHTML = `
+            <div>
+              <div class="flex items-center gap-2 mb-1">
+                <span class="text-xs font-bold text-stone-900">${rec.title}</span>
+                <span class="text-[10px] px-2 py-0.5 rounded bg-stone-100 text-stone-600">${rec.type || 'Meal'}</span>
+              </div>
+              <p class="text-[11px] text-stone-500 line-clamp-2">${rec.instructions || ''}</p>
+            </div>
+            ${isCurrent ? '<i class="fa-solid fa-check text-brand-500 text-sm mt-1"></i>' : ''}
+          `;
+          list.appendChild(btn);
+        });
+      }
+
+      openModal('recipe-modal');
+    }
+
+    function selectRecipeForDay(recipeId) {
+      if (activeDaySelecting) {
+        if (!currentWeeklyPlan[activeDaySelecting]) currentWeeklyPlan[activeDaySelecting] = {};
+        currentWeeklyPlan[activeDaySelecting].recipe = recipeId;
+        saveState();
+        closeModal('recipe-modal');
+      }
+    }
+
+    function toggleGroceryCheck(itemName) {
+      if (checkedGroceries.includes(itemName)) {
+        checkedGroceries = checkedGroceries.filter(i => i !== itemName);
+      } else {
+        checkedGroceries.push(itemName);
+      }
+      localStorage.setItem('general_checked_groceries_v1', JSON.stringify(checkedGroceries));
+      renderGroceryList();
+    }
+
+    async function openCookMode(recipeId) {
+      const recipe = recipes.find(r => r.id === recipeId);
+      if (!recipe) return;
+
+      document.getElementById('cook-mode-title').innerText = recipe.title;
+      document.getElementById('cook-mode-instructions').innerText = recipe.instructions || 'No specific cooking instructions provided.';
+
+      const ingContainer = document.getElementById('cook-mode-ingredients');
+      ingContainer.innerHTML = '';
+      if (recipe.ingredients) {
+        recipe.ingredients.forEach(i => {
+          const badge = document.createElement('span');
+          badge.className = 'px-2.5 py-1 bg-white border border-stone-200 rounded-lg shadow-2xs font-medium';
+          badge.innerText = `${i.amount ? i.amount + ' ' + i.unit + ' ' : ''}${i.name}`;
+          ingContainer.appendChild(badge);
+        });
+      }
+
+      try {
+        if ('wakeLock' in navigator) {
+          wakeLockSentinel = await navigator.wakeLock.request('screen');
+          document.getElementById('wake-lock-status').classList.remove('hidden');
+        } else {
+          document.getElementById('wake-lock-status').classList.add('hidden');
+        }
+      } catch (err) {
+        document.getElementById('wake-lock-status').classList.add('hidden');
+      }
+
+      openModal('cook-mode-modal');
+    }
+
+    function closeCookMode() {
+      if (wakeLockSentinel) {
+        wakeLockSentinel.release().then(() => {
+          wakeLockSentinel = null;
+        });
+      }
+      closeModal('cook-mode-modal');
+    }
+
+    document.getElementById('open-recipe-box-btn').addEventListener('click', () => {
+      const list = document.getElementById('recipe-box-list');
+      list.innerHTML = '';
+      if (recipes.length === 0) {
+        list.innerHTML = `<p class="text-xs text-stone-400 text-center py-6">No recipes in your box yet.</p>`;
+      } else {
+        recipes.forEach(r => {
+          const item = document.createElement('div');
+          item.className = 'py-3 flex items-start justify-between gap-4';
+          item.innerHTML = `
+            <div class="flex-1">
+              <div class="flex items-center gap-2">
+                <h4 class="text-xs font-bold text-stone-900">${r.title}</h4>
+                <span class="text-[10px] px-1.5 py-0.5 bg-stone-100 rounded text-stone-600">${r.type || 'Meal'}</span>
+              </div>
+              <p class="text-[11px] text-stone-500 mt-1">${r.ingredients ? r.ingredients.map(i => `${i.amount ? i.amount + ' ' + i.unit + ' ' : ''}${i.name}`).join(', ') : ''}</p>
+            </div>
+            <div class="flex items-center gap-2">
+              <button onclick="editRecipe('${r.id}')" class="text-stone-400 hover:text-brand-600 text-xs p-1 transition" title="Edit Recipe">
+                <i class="fa-solid fa-pen"></i>
+              </button>
+              <button onclick="deleteRecipe('${r.id}')" class="text-stone-400 hover:text-rose-600 text-xs p-1 transition" title="Delete Recipe">
+                <i class="fa-solid fa-trash-can"></i>
+              </button>
+            </div>
+          `;
+          list.appendChild(item);
+        });
+      }
+      openModal('recipe-box-modal');
+    });
+
+    function editRecipe(id) {
+      const recipe = recipes.find(r => r.id === id);
+      if (!recipe) return;
+      closeModal('recipe-box-modal');
+
+      document.getElementById('recipe-form-modal-title').innerText = 'Edit Recipe';
+      document.getElementById('rec-edit-id').value = recipe.id;
+      document.getElementById('rec-input-title').value = recipe.title || '';
+      document.getElementById('rec-input-type').value = recipe.type || '';
+      document.getElementById('rec-input-tags').value = (recipe.tags || []).join(', ');
+      document.getElementById('rec-input-instructions').value = recipe.instructions || '';
+
+      const container = document.getElementById('recipe-ing-rows');
+      container.innerHTML = '';
+      if (recipe.ingredients && recipe.ingredients.length > 0) {
+        recipe.ingredients.forEach(i => {
+          addIngredientRow('recipe-ing-rows', i.name, i.amount || '', i.unit || 'whole', i.category || 'Produce');
+        });
+      } else {
+        addIngredientRow('recipe-ing-rows', '', 1, 'lbs', 'Meat & Poultry');
+      }
+
+      openModal('recipe-form-modal');
+    }
+
+    function deleteRecipe(id) {
+      if (confirm("Delete this recipe? It will also unassign from any scheduled days.")) {
+        recipes = recipes.filter(r => r.id !== id);
+        DAYS_OF_WEEK.forEach(day => {
+          if (currentWeeklyPlan[day]?.recipe === id) currentWeeklyPlan[day].recipe = null;
+        });
+        saveState();
+        document.getElementById('open-recipe-box-btn').click();
+      }
+    }
+
+    function addIngredientRow(containerId, name = '', amount = '', unit = 'whole', category = 'Produce') {
+      const container = document.getElementById(containerId);
+      const row = document.createElement('div');
+      row.className = 'flex items-center gap-1.5 ing-row';
+      
+      row.innerHTML = `
+        <input type="text" list="known-ingredients-list" placeholder="Item name..." value="${name}" class="ing-name flex-1 text-xs rounded-lg border border-stone-300 px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-brand-500" required />
+        <input type="number" step="any" placeholder="Qty" value="${amount}" class="ing-amount w-14 text-xs rounded-lg border border-stone-300 px-1.5 py-1.5 focus:outline-none text-center" />
+        <select class="ing-unit text-[11px] rounded-lg border border-stone-300 px-1 py-1.5 focus:outline-none bg-white">
+          ${STANDARD_UNITS.map(u => `<option value="${u}" ${u === unit ? 'selected' : ''}>${u}</option>`).join('')}
+        </select>
+        <select class="ing-cat text-[11px] rounded-lg border border-stone-300 px-1 py-1.5 focus:outline-none bg-white">
+          ${AISLES.map(a => `<option value="${a}" ${a === category ? 'selected' : ''}>${a}</option>`).join('')}
+        </select>
+        <button type="button" onclick="this.parentElement.remove()" class="text-stone-300 hover:text-rose-500 p-1">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      `;
+
+      const nameInput = row.querySelector('.ing-name');
+      const unitSelect = row.querySelector('.ing-unit');
+      const catSelect = row.querySelector('.ing-cat');
+
+      nameInput.addEventListener('input', (e) => {
+        const val = e.target.value.trim();
+        const map = getKnownIngredientMap();
+        if (map[val]) {
+          if (map[val].unit) unitSelect.value = map[val].unit;
+          if (map[val].category) catSelect.value = map[val].category;
+        }
+      });
+
+      container.appendChild(row);
+    }
+
+    function openCreateRecipeModal() {
+      document.getElementById('recipe-form-modal-title').innerText = 'Add New Recipe';
+      document.getElementById('recipe-form').reset();
+      document.getElementById('rec-edit-id').value = '';
+      document.getElementById('recipe-ing-rows').innerHTML = '';
+      addIngredientRow('recipe-ing-rows', '', 1, 'lbs', 'Meat & Poultry');
+      closeModal('recipe-box-modal');
+      openModal('recipe-form-modal');
+    }
+
+    document.getElementById('recipe-form').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const editId = document.getElementById('rec-edit-id').value;
+      const title = document.getElementById('rec-input-title').value.trim();
+      const type = document.getElementById('rec-input-type').value.trim() || 'Meal';
+      const tags = document.getElementById('rec-input-tags').value.split(',').map(t => t.trim()).filter(Boolean);
+      const instructions = document.getElementById('rec-input-instructions').value.trim();
+
+      const ingredients = [];
+      document.querySelectorAll('#recipe-ing-rows .ing-row').forEach(row => {
+        const name = row.querySelector('.ing-name').value.trim();
+        const rawAmt = row.querySelector('.ing-amount').value;
+        const amount = rawAmt ? parseFloat(rawAmt) : null;
+        const unit = row.querySelector('.ing-unit').value || 'as needed';
+        const category = row.querySelector('.ing-cat').value;
+        if (name) ingredients.push({ name, amount, unit, category });
+      });
+
+      if (editId) {
+        const idx = recipes.findIndex(r => r.id === editId);
+        if (idx !== -1) {
+          recipes[idx] = {
+            ...recipes[idx],
+            title,
+            type,
+            tags,
+            instructions,
+            ingredients
+          };
+        }
+      } else {
+        recipes.push({
+          id: 'rec_' + Date.now(),
+          title,
+          type,
+          tags,
+          instructions,
+          ingredients
+        });
+      }
+
+      saveState();
+      closeModal('recipe-form-modal');
+      document.getElementById('open-recipe-box-btn').click();
+    });
+
+
+    // =========================================================================
+    // SECTION 7: BACKUP, RESTORE & AUTOFILL
+    // Manages backing up data to a JSON file, restoring from backups, 
+    // random autofilling of weekly schedules, and clipboard export.
+    // =========================================================================
+
+    document.getElementById('export-backup-btn').addEventListener('click', () => {
+      const backupData = {
+        version: 1,
+        exportDate: new Date().toISOString(),
+        recipes,
+        currentWeeklyPlan,
+        checkedGroceries,
+        stockedPantryItems,
+        customGroceries,
+        groceryScope,
+        currentBrandColor
+      };
+
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(backupData, null, 2));
+      const downloadAnchor = document.createElement('a');
+      downloadAnchor.setAttribute("href", dataStr);
+      downloadAnchor.setAttribute("download", "meal-planner-backup.json");
+      document.body.appendChild(downloadAnchor);
+      downloadAnchor.click();
+      downloadAnchor.remove();
+    });
+
+    document.getElementById('import-backup-input').addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function(evt) {
+        try {
+          const parsed = JSON.parse(evt.target.result);
+          if (parsed && parsed.recipes) {
+            recipes = parsed.recipes || recipes;
+            currentWeeklyPlan = parsed.currentWeeklyPlan || currentWeeklyPlan;
+            checkedGroceries = parsed.checkedGroceries || [];
+            stockedPantryItems = parsed.stockedPantryItems || [];
+            customGroceries = parsed.customGroceries || [];
+            groceryScope = parsed.groceryScope || 'full';
+            if (parsed.currentBrandColor) {
+              currentBrandColor = parsed.currentBrandColor;
+              applyBrandColor(currentBrandColor);
+            }
+            saveState();
+            alert(`Backup restored successfully! Loaded ${recipes.length} recipes.`);
+          } else {
+            alert('Invalid backup file format.');
+          }
+        } catch (err) {
+          alert('Error reading JSON file. Please ensure it is a valid backup.');
+        }
+      };
+      reader.readAsText(file);
+      e.target.value = '';
+    });
+
+    document.getElementById('autofill-btn').addEventListener('click', () => {
+      if (recipes.length === 0) return alert('Add some recipes to your library first!');
+
+      const shuffledRecipes = [...recipes].sort(() => 0.5 - Math.random());
+
+      DAYS_OF_WEEK.forEach((day, idx) => {
+        currentWeeklyPlan[day] = {
+          recipe: shuffledRecipes[idx % shuffledRecipes.length].id
+        };
+      });
+      checkedGroceries = [];
+      saveState();
+    });
+
+    document.getElementById('clear-plan-btn').addEventListener('click', () => {
+      DAYS_OF_WEEK.forEach(day => {
+        currentWeeklyPlan[day] = { recipe: null };
+      });
+      checkedGroceries = [];
+      saveState();
+    });
+
+    document.getElementById('add-custom-btn').addEventListener('click', () => {
+      const input = document.getElementById('custom-item-input');
+      const val = input.value.trim();
+      if (val) {
+        customGroceries.push(val);
+        input.value = '';
+        saveState();
+      }
+    });
+
+    document.getElementById('copy-grocery-btn').addEventListener('click', () => {
+      const categoryMap = {};
+
+      function addIng(ing) {
+        const cat = ing.category || 'Pantry & Spices';
+        const name = ing.name.trim();
+        if (stockedPantryItems.includes(name)) return;
+
+        if (!categoryMap[cat]) categoryMap[cat] = {};
+        const isBulk = BULK_CONTAINER_UNITS.includes((ing.unit || '').toLowerCase());
+
+        if (!categoryMap[cat][name]) {
+          categoryMap[cat][name] = { 
+            amount: isBulk ? 1 : ing.amount, 
+            unit: ing.unit 
+          };
+        } else {
+          if (!isBulk && typeof ing.amount === 'number' && typeof categoryMap[cat][name].amount === 'number' && categoryMap[cat][name].unit === ing.unit) {
+            categoryMap[cat][name].amount += ing.amount;
+          }
+        }
+      }
+
+      const activeDays = getDaysForCurrentScope();
+
+      activeDays.forEach(day => {
+        const item = currentWeeklyPlan[day];
+        if (item) {
+          const recipe = recipes.find(r => r.id === item.recipe);
+          if (recipe && recipe.ingredients) recipe.ingredients.forEach(i => addIng(i));
+        }
+      });
+
+      let textOutput = `GROCERY SHOPPING LIST (${groceryScope.toUpperCase()})\n\n`;
+
+      Object.keys(categoryMap).sort().forEach(cat => {
+        const itemNames = Object.keys(categoryMap[cat]).sort();
+        if (itemNames.length > 0) {
+          textOutput += `[ ${cat.toUpperCase()} ]\n`;
+          itemNames.forEach(name => {
+            const data = categoryMap[cat][name];
+            let displayLabel = name;
+            if (data.amount !== null && data.amount !== undefined) {
+              displayLabel = `${Math.round(data.amount * 100) / 100} ${data.unit} ${name}`;
+            }
+            const isDone = checkedGroceries.includes(displayLabel) ? '✓ ' : '□ ';
+            textOutput += `${isDone}${displayLabel}\n`;
+          });
+          textOutput += `\n`;
+        }
+      });
+
+      if (customGroceries.length > 0) {
+        textOutput += `[ CUSTOM & EXTRAS ]\n`;
+        customGroceries.forEach(item => {
+          const isDone = checkedGroceries.includes(item) ? '✓ ' : '□ ';
+          textOutput += `${isDone}${item}\n`;
+        });
+        textOutput += `\n`;
+      }
+
+      navigator.clipboard.writeText(textOutput);
+      const btn = document.getElementById('copy-grocery-btn');
+      btn.innerHTML = '<i class="fa-solid fa-check text-emerald-500"></i>';
+      setTimeout(() => {
+        btn.innerHTML = '<i class="fa-regular fa-copy"></i>';
+      }, 1500);
+    });
+
+    // Apply saved theme colour and run initial page update on startup
+    applyBrandColor(currentBrandColor);
+    updateUI();
+  </script>
+</body>
+</html>
