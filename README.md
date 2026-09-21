@@ -10,7 +10,7 @@ Hosted live on **[GitHub Pages](http://misslilmango.github.io/meal-planner)**.
 
 * **7-Day Interactive Schedule:** Assign recipes to any day of the week, shuffle single days, or use **Autofill** to randomize your weekly meal rotation. Past days are shaded and today is highlighted automatically.
 * **Recipe Library:** Store and organize recipes with custom categories (*Sheet Pan, Slow Cooker, Soup/Stew, Instant Pot, Salad, Quick Bite, and more*), tags, and instructions.
-* **Smart Grocery List & Filters:** Ingredients from your scheduled meals automatically aggregate into a shopping list sorted by. Toggle scopes between **Full Week**, **Rest of Week**, or **Today Only**.
+* **Smart Grocery List & Filters:** Ingredients from your scheduled meals automatically aggregate into a shopping list. Toggle scopes between **Full Week**, **Rest of Week**, or **Today Only**.
 * **Pantry & Staples:** Archive ingredients you already own so they drop off your active shopping list, or add custom household staples on the fly.
 * **Kitchen Cook Mode:** Open any meal in full-screen mode to view ingredients and cooking steps. Includes a built-in screen awake lock so your phone or tablet doesn't go to sleep while cooking.
 
