@@ -18,7 +18,7 @@ Hosted live on **[GitHub Pages](http://misslilmango.github.io/meal-planner)**.
 
 ## How the Memory Works
 
-This application runs 100% in your browser using Local Browser Storage (`localStorage`). 
+This application runs 100% in your browser using Local Browser Storage. 
 
 * **Data Privacy:** All of your recipes, weekly schedules, checked-off grocery items, and pantry stashes are saved privately inside your browser device. No data is ever sent to an external server.
 * **Clearing Data:** Clearing your browser site data or cache will reset the planner back to a blank slate.
